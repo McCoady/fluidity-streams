@@ -17,7 +17,7 @@ import "@openzeppelin/contracts/access/Ownable.sol"; //https://github.com/OpenZe
 
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
-contract YourContract is SuperAppBase {
+contract StreamPool is SuperAppBase {
     ISuperfluid host; // Superfluid host contract
     IConstantFlowAgreementV1 cfa; // The stored constant flow agreement class address
     IInstantDistributionAgreementV1 ida; // The stored instant dist. agreement class address
@@ -44,6 +44,27 @@ contract YourContract is SuperAppBase {
     }
 
     function getNetFlow() public view returns (int96) {
-        return _cfa.getNetFlow(_acceptedToken, address(this));
+        return cfa.getNetFlow(inputToken, address(this));
+    }
+
+    function afterAgreementCreated(
+        ISuperToken _superToken,
+        address _agreementClass,
+        bytes32, // _agreementId,
+        bytes calldata _agreementData,
+        bytes calldata, // _cbdata,
+        bytes calldata _ctx
+    ) external override returns (bytes memory newCtx) {
+        require(address(_superToken) == address(inputToken));
+        address customer = host.decodeCtx(_ctx).msgSender;
+        return _updateOutflow(_ctx, customer, _agreementId);
+    }
+
+    function getInputToken() public view returns (ISuperToken) {
+        return inputToken;
+    }
+
+    function getOutputToken() public view returns (ISuperToken) {
+        return StreamPool.outputToken;
     }
 }

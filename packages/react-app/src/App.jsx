@@ -53,7 +53,7 @@ const { ethers } = require("ethers");
 */
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS.ropsten; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
 const DEBUG = true;
@@ -168,8 +168,8 @@ function App(props) {
     poktMainnetProvider && poktMainnetProvider._isProvider
       ? poktMainnetProvider
       : scaffoldEthProvider && scaffoldEthProvider._network
-      ? scaffoldEthProvider
-      : mainnetInfura;
+        ? scaffoldEthProvider
+        : mainnetInfura;
 
   const [injectedProvider, setInjectedProvider] = useState();
   const [address, setAddress] = useState();
@@ -457,7 +457,7 @@ function App(props) {
               }}
               to="/"
             >
-              YourContract
+              StreamPool
             </Link>
           </Menu.Item>
           <Menu.Item key="/hints">
@@ -511,7 +511,7 @@ function App(props) {
             */}
 
             <Contract
-              name="YourContract"
+              name="StreamPool"
               signer={userSigner}
               provider={localProvider}
               address={address}

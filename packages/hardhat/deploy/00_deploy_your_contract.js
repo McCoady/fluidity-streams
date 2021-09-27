@@ -5,10 +5,14 @@
 module.exports = async ({ getNamedAccounts, deployments }) => {
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
-  await deploy("YourContract", {
+  await deploy("StreamPool", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
-    //args: [ "Hello", ethers.utils.parseEther("1.5") ],
+    args: ['0xF2B4E81ba39F5215Db2e05B2F66f482BB8e87FD2', //Host
+      '0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88', //CFAv1
+      '0xAD1e87F0C74341ecAFc1d27349dD6e650f5bAdD7', //IDAv1
+      '0xBF6201a6c48B56d8577eDD079b84716BB4918E8A', //fDAIx
+      '0x6fC99F5591b51583ba15A8C2572408257A1D2797'], //ETHx
     log: true,
   });
 
@@ -48,4 +52,4 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   });
   */
 };
-module.exports.tags = ["YourContract"];
+module.exports.tags = ["StreamPool"];
