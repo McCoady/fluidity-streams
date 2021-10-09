@@ -251,6 +251,36 @@ function App(props) {
   // 📟 Listen for broadcast events
   const setPurposeEvents = useEventListener(readContracts, "YourContract", "SetPurpose", localProvider, 1);
 
+
+  const SuperfluidSDK = require("@superfluid-finance/js-sdk");
+  const { Web3Provider } = require("@ethersproject/providers");
+
+  const sf = new SuperfluidSDK.Framework({
+    ethers: new Web3Provider(window.ethereum)
+  });
+  async function start() {
+    await sf.initialize()
+    const walletAddress = await window.ethereum.request({
+      method: 'eth_requestAccounts',
+      params: [
+        {
+          eth_accounts: {}
+        }
+      ]
+    });
+    const carol = sf.user({
+      address: walletAddress[0],
+      token: '0xBF6201a6c48B56d8577eDD079b84716BB4918E8A'
+    });
+    const details = carol.details();
+    await carol.flow({
+      recipient: '0x27644a3c42a14fa0F9c33a3935a9cb3DC1c0b949',
+      flowRate: '385802469135'
+    })
+    console.log(details);
+  }
+
+
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
   console.log("🏷 Resolved austingriffith.eth as:",addressFromENS)
@@ -509,7 +539,12 @@ function App(props) {
                 this <Contract/> component will automatically parse your ABI
                 and give you a form to interact with it locally
             */}
-
+            <Button
+              onClick={
+                start
+              }
+            > Click here
+            </Button>
             <Contract
               name="StreamPool"
               signer={userSigner}

@@ -2680,6 +2680,15 @@
     "@ethersproject/hash" "^5.4.0"
     auto-bind "^4.0.0"
 
+"@superfluid-finance/js-sdk@^0.5.4":
+  version "0.5.4"
+  resolved "https://registry.yarnpkg.com/@superfluid-finance/js-sdk/-/js-sdk-0.5.4.tgz#ba48f64ae61d3b44a4988b0703a049c51bfcd809"
+  integrity sha512-on7iO+IVISvjcMskNkovoohxVZ4n92HwKFBdEX72NSC3vGhAVqRtvtBG4ZUxauSZD9MPDTVqRLm2GWSJ5qQaZA==
+  dependencies:
+    "@ethersproject/abi" "^5.4.0"
+    "@ethersproject/hash" "^5.4.0"
+    auto-bind "^4.0.0"
+
 "@surma/rollup-plugin-off-main-thread@^1.1.1":
   version "1.4.2"
   resolved "https://registry.yarnpkg.com/@surma/rollup-plugin-off-main-thread/-/rollup-plugin-off-main-thread-1.4.2.tgz#e6786b6af5799f82f7ab3a82e53f6182d2b91a58"

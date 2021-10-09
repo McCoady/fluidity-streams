@@ -12,7 +12,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
       '0xaD2F1f7cd663f6a15742675f975CcBD42bb23a88', //CFAv1
       '0xAD1e87F0C74341ecAFc1d27349dD6e650f5bAdD7', //IDAv1
       '0xBF6201a6c48B56d8577eDD079b84716BB4918E8A', //fDAIx
-      '0x6fC99F5591b51583ba15A8C2572408257A1D2797'], //ETHx
+      '0x6fC99F5591b51583ba15A8C2572408257A1D2797', //ETHx
+      '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506' //sushiRouter
+    ],
     log: true,
   });
 
