@@ -343,6 +343,10 @@ contract StreamPool is SuperAppBase {
         return lastDistribution;
     }
 
+    function getPoolBalance() public view returns (uint256) {
+        return _inputToken.balanceOf(address(this));
+    }
+
     //get number of users flowing
 
     function _isSameToken(ISuperToken superToken) private view returns (bool) {
