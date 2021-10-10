@@ -15,6 +15,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
       '0x6fC99F5591b51583ba15A8C2572408257A1D2797', //ETHx
       '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506' //sushiRouter
     ],
+    gasLimit: 4000000,
     log: true,
   });
 

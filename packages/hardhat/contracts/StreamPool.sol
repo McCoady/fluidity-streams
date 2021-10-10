@@ -13,11 +13,15 @@ import {SuperAppBase} from "@superfluid-finance/ethereum-contracts/contracts/app
 
 import "@openzeppelin/contracts/access/Ownable.sol"; //https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
 
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract StreamPool is SuperAppBase {
+    using SafeERC20 for ERC20;
+
     ISuperfluid _host; // Superfluid host contract
     IConstantFlowAgreementV1 _cfa; // The stored constant flow agreement class address
     IInstantDistributionAgreementV1 _ida; // The stored instant dist. agreement class address
@@ -27,6 +31,9 @@ contract StreamPool is SuperAppBase {
     uint32 outputIndexId;
     uint256 lastDistribution;
 
+    event Distribution(uint256 distributionAmount, address outputToken);
+    event UpdatedStream(address user, int96 userFlow, int96 totalFlow);
+
     constructor(
         ISuperfluid host,
         IConstantFlowAgreementV1 cfa,
@@ -34,7 +41,7 @@ contract StreamPool is SuperAppBase {
         ISuperToken inputToken,
         ISuperToken outputToken,
         IUniswapV2Router02 sushiRouter
-    ) {
+    ) payable {
         require(address(host) != address(0), "host");
         require(address(cfa) != address(0), "cfa");
         require(address(ida) != address(0), "ida");
@@ -49,21 +56,14 @@ contract StreamPool is SuperAppBase {
         _sushiRouter = sushiRouter;
 
         // Unlimited approve for sushiswap
-        ERC20(_inputToken.getUnderlyingToken()).increaseAllowance(
+        ERC20(_inputToken.getUnderlyingToken()).safeIncreaseAllowance(
             address(_sushiRouter),
             2**256 - 1
         );
-        ERC20(_outputToken.getUnderlyingToken()).increaseAllowance(
-            address(_sushiRouter),
-            2**256 - 1
-        );
+
         // and Supertoken upgrades
-        ERC20(_inputToken.getUnderlyingToken()).increaseAllowance(
+        ERC20(_inputToken.getUnderlyingToken()).safeIncreaseAllowance(
             address(_inputToken),
-            2**256 - 1
-        );
-        ERC20(_outputToken.getUnderlyingToken()).increaseAllowance(
-            address(_outputToken),
             2**256 - 1
         );
 
@@ -73,9 +73,9 @@ contract StreamPool is SuperAppBase {
             SuperAppDefinitions.BEFORE_AGREEMENT_TERMINATED_NOOP;
         host.registerApp(configWord);
 
-        this._createIndex(outputIndexId, outputToken);
+        _createIndex(outputIndexId, outputToken);
 
-        this._updateSubscription(outputIndexId, msg.sender, 1, _outputToken);
+        _updateSubscription(outputIndexId, msg.sender, 1, _outputToken);
     }
 
     function _updateOutflow(
@@ -92,7 +92,7 @@ contract StreamPool is SuperAppBase {
             (10**(18 - ERC20(_inputToken.getUnderlyingToken()).decimals()));
 
         if (
-            doDistributeFirst &&
+            distributeFirst &&
             totalUnitsApproved + totalUnitsPending > 0 &&
             balance > 0
         ) {
@@ -104,6 +104,11 @@ contract StreamPool is SuperAppBase {
             (address, address)
         );
         int96 appFlowRate = _cfa.getNetFlow(_inputToken, address(this));
+        (, int96 requesterFlowRate, , ) = _cfa.getFlow(
+            _inputToken,
+            requester,
+            address(this)
+        );
 
         emit UpdatedStream(requester, requesterFlowRate, appFlowRate);
     }
@@ -112,7 +117,7 @@ contract StreamPool is SuperAppBase {
         ISuperToken _superToken,
         address _agreementClass,
         bytes32 _agreementId,
-        bytes calldata, /*_agreementData*/
+        bytes calldata _agreementData,
         bytes calldata, // _cbdata,
         bytes calldata _ctx
     )
@@ -122,14 +127,14 @@ contract StreamPool is SuperAppBase {
         returns (bytes memory newCtx)
     {
         address user = _host.decodeCtx(_ctx).msgSender;
-        return _updateOutflow(_ctx, user, _agreementId);
+        return _updateOutflow(_ctx, _agreementData, true);
     }
 
     function afterAgreementUpdated(
         ISuperToken _superToken,
         address _agreementClass,
         bytes32 _agreementId,
-        bytes calldata, /*_agreementData*/
+        bytes calldata _agreementData,
         bytes calldata, //_cbdata,
         bytes calldata _ctx
     )
@@ -139,7 +144,7 @@ contract StreamPool is SuperAppBase {
         returns (bytes memory newCtx)
     {
         address customer = _host.decodeCtx(_ctx).msgSender;
-        return _updateOutflow(_ctx, customer, _agreementId);
+        return _updateOutflow(_ctx, _agreementData, true);
     }
 
     function afterAgreementTerminated(
@@ -153,17 +158,14 @@ contract StreamPool is SuperAppBase {
         // According to the app basic law, we should never revert in a termination callback
         //if (!_isSameToken(_superToken) || !_isCFAv1(_agreementClass)) return _ctx;
         (address customer, ) = abi.decode(_agreementData, (address, address));
-        return _updateOutflow(_ctx, customer, _agreementId);
+        return _updateOutflow(_ctx, _agreementData, true);
     }
 
     function _swap(uint256 amount, uint256 deadline) public returns (uint256) {
-        address tokenIn;
-        address tokenOut;
+        address tokenIn = _inputToken.getUnderlyingToken();
+        address tokenOut = _sushiRouter.WETH();
         address[] memory path;
         uint256 outputAmount;
-
-        tokenIn = _inputToken.getUnderlyingToken();
-        tokenOut = _outputToken.getUnderlyingToken();
 
         _inputToken.downgrade(amount);
 
@@ -171,18 +173,16 @@ contract StreamPool is SuperAppBase {
         path[0] = tokenIn;
         path[1] = tokenOut;
 
-        _sushiRouter.swapExactTokensForTokens(
+        _sushiRouter.swapExactTokensForETH(
             amount,
             0,
             path,
             address(this),
             deadline
         );
-        outputAmount = ERC20(tokenOut).balanceOf(address(this));
+        outputAmount = address(this).balance;
 
-        _outputToken.upgrade(
-            outputAmount * (10**(18 - ERC20(tokenOut).decimals())) //tokenOut.upgrade 'not found'
-        );
+        _outputToken.upgrade(outputAmount);
 
         return outputAmount;
     }
@@ -222,26 +222,109 @@ contract StreamPool is SuperAppBase {
         );
         newCtx = _idaDistribute(
             outputIndexId,
-            uint128(distribAmount, _outputToken, newCtx)
+            uint128(actualAmount),
+            _outputToken,
+            newCtx
         );
-        emit Distribution(distribAmount, address(_outputToken));
+
+        emit Distribution(actualAmount, address(_outputToken));
 
         lastDistribution = block.timestamp;
 
         return newCtx;
     }
 
+    function _idaDistribute(
+        uint32 index,
+        uint128 distAmount,
+        ISuperToken distToken,
+        bytes memory ctx
+    ) internal returns (bytes memory newCtx) {
+        newCtx = ctx;
+        if (newCtx.length == 0) {
+            // No context provided
+            _host.callAgreement(
+                _ida,
+                abi.encodeWithSelector(
+                    _ida.distribute.selector,
+                    distToken,
+                    index,
+                    distAmount,
+                    new bytes(0) // placeholder ctx
+                ),
+                new bytes(0) // user data
+            );
+        } else {
+            require(
+                _host.isCtxValid(newCtx) || newCtx.length == 0,
+                "Ctx invalid"
+            );
+            (newCtx, ) = _host.callAgreementWithContext(
+                _ida,
+                abi.encodeWithSelector(
+                    _ida.distribute.selector,
+                    distToken,
+                    index,
+                    distAmount,
+                    new bytes(0) // placeholder ctx
+                ),
+                new bytes(0), // user data
+                newCtx
+            );
+        }
+    }
+
+    function _createIndex(uint256 index, ISuperToken distToken) internal {
+        _host.callAgreement(
+            _ida,
+            abi.encodeWithSelector(
+                _ida.createIndex.selector,
+                distToken,
+                index,
+                new bytes(0) // placeholder ctx
+            ),
+            new bytes(0) // user data
+        );
+    }
+
+    function _updateSubscription(
+        uint256 index,
+        address subscriber,
+        uint128 shares,
+        ISuperToken distToken
+    ) internal {
+        _host.callAgreement(
+            _ida,
+            abi.encodeWithSelector(
+                _ida.updateSubscription.selector,
+                distToken,
+                index,
+                subscriber,
+                shares / 1e9,
+                new bytes(0) // placeholder ctx
+            ),
+            new bytes(0) // user data
+        );
+    }
+
+    function distribute() public {
+        _distribute(new bytes(0));
+    }
+
     function getNetFlow() public view returns (int96) {
         return _cfa.getNetFlow(_inputToken, address(this));
     }
 
-    function getUserStream() public view returns (int96) {
-        (, int96 outFlowRate, , ) = _cfa.getFlow(
-            _outputToken,
-            address(this),
-            msg.sender
+    function getUserStream(address user)
+        public
+        view
+        returns (int96 requesterFlowRate)
+    {
+        (, requesterFlowRate, , ) = _cfa.getFlow(
+            _inputToken,
+            user,
+            address(this)
         );
-        return outFlowRate;
     }
 
     function getInputToken() public view returns (ISuperToken) {
