@@ -274,7 +274,7 @@ function App(props) {
     });
     const details = carol.details();
     await carol.flow({
-      recipient: '0x0c4faA7220f1FEfaEF314BA4661169b9384De021',
+      recipient: '0xe4987F350C2A7E4f6ccC34FAF59c39497DDB1eF5',
       flowRate: '9858024691350'
     })
     console.log(details);

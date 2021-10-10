@@ -162,10 +162,12 @@ contract StreamPool is SuperAppBase {
     }
 
     function _swap(uint256 amount, uint256 deadline) public returns (uint256) {
-        address tokenIn = _inputToken.getUnderlyingToken();
+        address tokenIn;
         address tokenOut = _sushiRouter.WETH();
         address[] memory path;
         uint256 outputAmount;
+
+        tokenIn = _inputToken.getUnderlyingToken();
 
         _inputToken.downgrade(amount);
 
